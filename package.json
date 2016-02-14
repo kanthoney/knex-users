@@ -30,6 +30,8 @@
   },
   "devDependencies": {
     "knex": "^0.10.0-rc1",
-    "sqlite3": "^3.1.1"
+    "sha1": "^1.1.1",
+    "sqlite3": "^3.1.1",
+    "uuid": "^2.0.1"
   }
 }
