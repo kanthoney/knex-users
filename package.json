@@ -1,0 +1,35 @@
+{
+  "name": "knex-users",
+  "version": "0.1.0",
+  "description": "User account handling using knex",
+  "main": "index.js",
+  "scripts": {
+    "test": "jasmine"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git:https://github.com/kanthoney/knex-users.git"
+  },
+  "keywords": [
+    "user",
+    "account",
+    "knex",
+    "database",
+    "store",
+    "authenticate"
+  ],
+  "author": "Kevin Anthoney",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/kanthoney/knex-users/issues"
+  },
+  "homepage": "https://github.com/kanthoney/knex-users#readme",
+  "dependencies": {
+    "bluebird": "^3.3.0",
+    "lodash": "^4.3.0"
+  },
+  "devDependencies": {
+    "knex": "^0.10.0-rc1",
+    "sqlite3": "^3.1.1"
+  }
+}
