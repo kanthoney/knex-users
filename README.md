@@ -108,7 +108,7 @@ then(function(record) {
 })
 ```
 
-The fields retieved are:
+The fields retrieved are:
 
   * `id`: the user id
 
