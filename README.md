@@ -26,7 +26,7 @@ npm install knex-users
 First create your knex instance:
 
 ```
-var db = require('knex')({ dialect: 'sqlite3', connection:{ filename: 'test.sqlite' } });
+var db = require('knex')({ client: 'sqlite3', connection:{ filename: 'test.sqlite' } });
 ```
 
 Then create your users module:
