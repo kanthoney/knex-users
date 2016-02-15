@@ -10,5 +10,5 @@ var config = {
                database: 'knex_users_test' } }
 }
 
-module.exports = require('knex')(config.mysql);
+module.exports = require('knex')(config.sqlite3);
 

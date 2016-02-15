@@ -1,7 +1,8 @@
 
 'use strict';
 
-var users = require('./users')({table_name: 'users', max_attempts: 2, freeze_time: 200});
+var tick = 1000;
+var users = require('./users')({table_name: 'users', max_attempts: 2, freeze_time: tick});
 
 describe('Eclectic set of tests test', function() {
 
@@ -34,7 +35,7 @@ describe('Eclectic set of tests test', function() {
         expect(record.id).toEqual('alexa');
         expect(record.password).toBeUndefined();
         expect(record.locked).toBeFalsy();
-        expect(record.freeze_time).toEqual(200);
+        expect(record.freeze_time).toEqual(tick);
         expect(record.current_freeze_time).toEqual(0);
         expect(record.failed_logins).toEqual(0);
         expect(record.max_attempts).toEqual(2);
@@ -186,87 +187,6 @@ describe('Eclectic set of tests test', function() {
       });
   });
 
-  it("should reject 'alexa' with password '654321' with 'Password rejected' error, and freeze account", function(done) {
-    users.authenticate('alexa', '654321')
-      .then(function() {
-        fail('authenticated user with wrong password');
-      })
-      .catch(function(error) {
-        expect(error).toEqual('Password rejected');
-        return users.get('alexa')
-          .then(function(record) {
-            expect(record.frozen_at).not.toBeNull();
-            expect(record.current_freeze_time).toEqual(200);
-            expect(record.failed_logins).toEqual(0);
-          });
-      })
-        .finally(function() {
-          done();
-        });
-  });
-
-  it("should reject 'alexa' with password '123456' with error 'Account frozen'", function(done) {
-    users.authenticate('alexa', '123456')
-      .then(function() {
-        fail('Authenticated frozen user');
-      })
-      .catch(function(error) {
-        expect(error).toEqual('Account frozen');
-      })
-        .finally(function() {
-          done();
-        });
-  });
-
-  it("should wait 300ms and then reject 'alexa' with password '654321' with 'Password rejected' error", function(done) {
-    setTimeout(function() {
-      users.authenticate('alexa', '654321')
-        .catch(function(error) {
-          expect(error).toEqual('Password rejected');
-        })
-          .finally(function() {
-            done();
-          });
-    }, 300);
-  });
-  
-  it("should count 1 failed login attempt against 'alexa'", function(done) {
-    users.get('alexa')
-      .then(function(record) {
-        expect(record.failed_logins).toEqual(1);
-      })
-      .finally(function() {
-        done();
-      });
-  });
-
-  it("should reject 'alexa' with password 'qwertyuiop' with 'Password rejected' error and freeze account for 400ms", function(done) {
-    users.authenticate('alexa', 'qwertyuiop')
-      .catch(function(error) {
-        expect(error).toEqual('Password rejected');
-        return users.get('alexa');
-      })
-        .then(function(record) {
-          expect(record.current_freeze_time).toEqual(400);
-          expect(record.frozen_at).not.toBeNull();
-        })
-      .finally(function() {
-        done();
-      });
-  });
-
-  it("should wait 500ms and then authenticate 'alexa' using password '123456'", function(done) {
-    setTimeout(function() {
-      users.authenticate('alexa', '123456')
-        .catch(function(error) {
-          fail(error);
-        }).
-        finally(function() {
-          done();
-        });
-    }, 500);
-  });
-
   it("should fail to add user 'alexa'", function(done) {
     users.add({id: 'alexa', password:'456789'})
       .then(function() {
@@ -399,7 +319,7 @@ describe('Eclectic set of tests test', function() {
       });
   });
 
-  it("should change password for 'admin' to 'password' and record password_changed time", function(done) {
+  it("should change password for 'admin' to 'password' and then fail authentication with 'let me in'", function(done) {
     var password_changed;
     users.get('admin')
       .then(function(record) {
@@ -407,18 +327,8 @@ describe('Eclectic set of tests test', function() {
         return users.set_password('admin', 'password');
       })
       .then(function() {
-        return users.get('admin');
+        return users.authenticate('admin', 'letmein');
       })
-      .then(function(record) {
-        expect(password_changed).toBeLessThan(record.password_changed);
-      })
-      .finally(function() {
-        done();
-      });
-  });
-
-  it("should reject user 'admin' with password 'letmein' with 'Password rejected' error", function(done) {
-    users.authenticate('admin', 'letmein')
       .then(function() {
         fail('Authenticated with incorrect password');
       })
