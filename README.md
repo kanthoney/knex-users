@@ -87,7 +87,8 @@ users.add(config);
 
 Authenticate your users.  The `authenticate(id, password, [compare])` method returns a resolved promise if the user authenticated successfully,
 or a rejected promise otherwise. The `compare(supplied, stored)` function can be used to check the supplied password against the stored password,
-otherwise the authentication passes if the two are equal. Can be used for challenge response authentication.
+otherwise the authentication uses `check_password` function supplied at initialization, or else tests for equality. This is intended to be used for
+challenge response authentication.
 
 ```
 users.authenticate('admin', 'letmein')
