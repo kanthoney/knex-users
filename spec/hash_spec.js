@@ -6,23 +6,12 @@ var sha1 = require('sha1');
 var _ = require('lodash');
 
 var salt = uuid.v4();
-var challenge = uuid.v4();
 var hash_password = function(password)
 {
   return sha1(sha1(password) + salt);
 }
 
-var check_password = function(supplied, stored)
-{
-  return supplied == sha1(stored + challenge);
-}
-
-var add_challenge = function(password)
-{
-  return sha1(hash_password(password) + challenge);
-}
-
-var users = require('./users')({hash_password: hash_password, check_password: check_password});
+var users = require('./users')({hash_password: hash_password});
 
 describe("Authentication tests", function() {
 
@@ -43,11 +32,22 @@ describe("Authentication tests", function() {
       });
   });
 
+  var challenge = uuid.v4();
+  var check_password = function(supplied, stored)
+  {
+    return supplied == sha1(stored + challenge);
+  }
+  
+  var add_challenge = function(password)
+  {
+    return sha1(hash_password(password) + challenge);
+  }
+
   it("should accept users when sending challenged password", function(done) {
     Promise.map(user_list,
                 function(user) 
                 {
-                  return users.authenticate(user.id, add_challenge(user.password))
+                  return users.authenticate(user.id, add_challenge(user.password), check_password)
                     .catch(function(error) {
                       fail(error);
                     })
@@ -74,16 +74,13 @@ describe("Authentication tests", function() {
       });
   });
 
-  it("should reject users when sending hashed password", function(done) {
+  it("should accept users when sending hashed password with no compare function", function(done) {
     Promise.map(user_list,
                 function(user)
                 {
                   return users.authenticate(user.id, hash_password(user.password))
-                    .then(function() {
-                      fail('Authenticated user with stored hashed password when using plain password');
-                    })
                     .catch(function(error) {
-                      expect(error).toEqual('Password rejected');
+                      fail(error);
                     })
                       })
       .finally(function() {
