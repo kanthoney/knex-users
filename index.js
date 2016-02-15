@@ -66,18 +66,14 @@ module.exports = function(db, config)
   var add = function(user)
   {
     var now = new Date().toISOString();
-    var user_copy = _.defaults({password: hash_password(user.password),
-                                created: now,
-                                password_changed: now,
-                                current_freeze_time: 0,
-                                failed_logins: 0,
-                                frozen_at: null,
-                                data: JSON.stringify({})},
-                               _.pick(user, ['id',
-                                             'locked',
-                                             'lockable',
-                                             'max_attempts',
-                                             'freeze_time']));
+    var user_copy = _.clone(user);
+    _.assign(user_copy, {password: hash_password(user_copy.password),
+                         created: now,
+                         password_changed: now,
+                         current_freeze_time: 0,
+                         failed_logins: 0,
+                         frozen_at: null,
+                         data: JSON.stringify({})});
     return table().insert(_.defaults(user_copy, {locked: false,
                                                  lockable: true,
                                                  max_attempts: max_attempts,
@@ -236,7 +232,7 @@ module.exports = function(db, config)
           if(!compare(password, user.password)) {
             return Promise.reject('Password rejected');
           }
-        } else if(!check_password(user.password, password)) {
+        } else if(!check_password(password, user.password)) {
           return Promise.reject('Password rejected');
         }
       })
