@@ -54,7 +54,8 @@ number of attempts is allowed.  This defaults to zero.
   * `hash_password(password)`: A function for encrypting / hashing / salting passwords.  By default the passwords are stored in plain text.
 
   * `check_password(supplied, stored)`: A function which returns `true` if the supplied password matches the stored password and `false` otherwise. The
-default function simply tests if they are equal.
+default function simply tests if they are equal.  If you want to use challenge response authentication or something similar, pass a `compare`
+function to the `authenticate` method instead.
 
 Then create the database table, in a migration or otherwise:
 
