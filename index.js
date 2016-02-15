@@ -66,23 +66,22 @@ module.exports = function(db, config)
   var add = function(user)
   {
     var now = new Date().toISOString();
-    var new_user = _.pick(user, ['id',
-                                 'password',
-                                 'locked',
-                                 'lockable',
-                                 'max_attempts',
-                                 'freeze_time']);
-    return table().insert(_.defaults(_.assign(new_user,
-                                              {created: now,
-                                               password_changed: now,
-                                               current_freeze_time: 0,
-                                               data: JSON.stringify({})}),
-                                     {locked: false,
-                                      lockable: true,
-                                      failed_logins: 0,
-                                      frozen_at: null,
-                                      max_attempts: max_attempts,
-                                      freeze_time: freeze_time}));
+    var user_copy = _.defaults({password: hash_password(user.password),
+                                created: now,
+                                password_changed: now,
+                                current_freeze_time: 0,
+                                failed_logins: 0,
+                                frozen_at: null,
+                                data: JSON.stringify({})},
+                               _.pick(user, ['id',
+                                             'locked',
+                                             'lockable',
+                                             'max_attempts',
+                                             'freeze_time']));
+    return table().insert(_.defaults(user_copy, {locked: false,
+                                                 lockable: true,
+                                                 max_attempts: max_attempts,
+                                                 freeze_time: freeze_time}));
   }
 
   var remove = function(id)
