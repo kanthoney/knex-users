@@ -35,7 +35,9 @@ Then create your users module:
 var users_config = {
   table_name: 'users',
   max_attempts: 5,
-  freeze_time: 60000
+  freeze_time: 60000,
+  hash_password: function(password) { return password; },
+  check_password: function(supplied, stored) { return supplied == stored; }
 )
 var users = require('knex-users')(db, users_config);
 ```
@@ -48,6 +50,11 @@ The config settings are:
 number of attempts is allowed.  This defaults to zero.
 
   * `freeze_time`: the default length of time in milliseconds before a frozen account is unlocked.  This parameter defaults to zero.
+
+  * `hash_password(password)`: A function for encrypting / hashing / salting passwords.  By default the passwords are stored in plain text.
+
+  * `check_password(supplied, stored)`: A function which returns `true` if the supplied password matches the stored password and `false` otherwise. The
+default function simply tests if they are equal.
 
 Then create the database table, in a migration or otherwise:
 
@@ -80,7 +87,8 @@ users.add(config);
 
 Authenticate your users.  The `authenticate(id, password, [compare])` method returns a resolved promise if the user authenticated successfully,
 or a rejected promise otherwise. The `compare(supplied, stored)` function can be used to check the supplied password against the stored password,
-otherwise the authentication passes if the two are equal.
+otherwise the authentication passes if the two are equal. The `compare` function is deprecated - use the `check_password` config option when initializing
+the module instead.
 
 ```
 users.authenticate('admin', 'letmein')

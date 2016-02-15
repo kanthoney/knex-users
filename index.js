@@ -18,6 +18,22 @@ module.exports = function(db, config)
   if(config && config.freeze_time) {
     freeze_time = config.freeze_time;
   }
+  var hash_password;
+  var check_password;
+  if(config && config.hash_password) {
+    hash_password = config.hash_password;
+  } else {
+    hash_password = function(password) {
+      return password;
+    }
+  }
+  if(config && config.check_password) {
+    check_password = config.check_password;
+  } else {
+    check_password = function(supplied, stored) {
+      return supplied == stored;
+    }
+  }
 
   var up = function()
   {
@@ -221,7 +237,7 @@ module.exports = function(db, config)
           if(!compare(password, user.password)) {
             return Promise.reject('Password rejected');
           }
-        } else if(user.password != password) {
+        } else if(!check_password(user.password, password)) {
           return Promise.reject('Password rejected');
         }
       })
