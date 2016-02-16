@@ -108,6 +108,13 @@ users.lock('jones');
 users.unlock('jones');
 ```
 
+Set an account to be lockable/unlockable.
+
+```
+users.set_lockable('armstrong');
+users.set_unlockable('armstrong');
+```
+
 Retrieve the account information.
 
 ```

@@ -56,7 +56,7 @@ describe("Account locking", function() {
 
   var lockable_user = function(user)
   {
-    return users.set_lockable(user, true)
+    return users.set_lockable(user)
       .then(function() {
         return users.get(user);
       })
@@ -67,7 +67,7 @@ describe("Account locking", function() {
 
   var unlockable_user = function(user)
   {
-    return users.set_lockable(user, false)
+    return users.set_unlockable(user)
       .then(function() {
         return users.get(user);
       })
