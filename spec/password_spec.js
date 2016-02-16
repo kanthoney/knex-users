@@ -2,18 +2,14 @@
 var users = require('./users')();
 var Promise = require('bluebird');
 var user_list = require('./user_list');
+var helpers = require('./helpers')(users);
 
 describe("Password change", function() {
 
   beforeAll(function(done) {
-    users.migrate_down()
+    helpers.reset()
       .then(function() {
-        return users.migrate_up();
-      })
-      .then(function() {
-        return Promise.map(user_list, function(user) {
-          return users.add(user);
-        });
+        return helpers.populate(user_list);
       })
       .finally(function() {
         done();
@@ -45,26 +41,17 @@ describe("Password change", function() {
   });
 
   it("should reject 'jerry' with password 'letmeout'", function(done) {
-    users.authenticate('jerry', 'letmeout')
-      .then(function() {
-        fail('Authenticated user with wrong password');
-      })
-      .catch(function(error) {
-        expect(error).toEqual('Password rejected');
-      })
-        .finally(function() {
-          done();
-        });
+    helpers.auth('jerry', 'letmeout', 'Password rejected')
+      .finally(function() {
+        done();
+      });
   });
 
   it("should accept 'jerry' with password 'guest'", function(done) {
-    users.authenticate('jerry', 'guest')
-      .catch(function(error) {
-        fail(error);
-      })
-        .finally(function() {
-          done();
-        });
+    helpers.auth('jerry', 'guest')
+      .finally(function() {
+        done();
+      });
   });
 });
 
