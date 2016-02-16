@@ -1,34 +1,20 @@
 
+'use strict';
+
 var db = require('./db');
 var users = require('../index')(db);
 var tick = 1000;
 var _ = require('lodash');
 var Promise = require('bluebird');
+var helpers = require('./helpers')(users);
 
-user = {id:'alexa', password: '123456'}
+var user = {id:'alexa', password: '123456'}
 
 describe("Freeze accounts test", function() {
 
   var setup = function(max_attempts, lockable)
   {
     return users.add(_.defaults({max_attempts: max_attempts, freeze_time: tick, lockable: lockable}, user));
-  }
-
-  var auth_check = function(password, message)
-  {
-    return users.authenticate('alexa', password)
-      .then(function() {
-        if(message) {
-          fail("Authenticated user when expecting '" + message + "'");
-        }
-      })
-      .catch(function(error) {
-        if(!message) {
-          fail(error);
-        } else {
-          expect(error).toEqual(message);
-        }
-      });
   }
 
   var test = function(max_attempts, cycles, lockable, locked)
@@ -44,9 +30,9 @@ describe("Freeze accounts test", function() {
           yield Promise.delay(tick/2)
             .then(function() {
               if(lockable && locked) {
-                return auth_check('fail', 'Account locked');
+                return helpers.auth('alexa', 'fail', 'Account locked');
               } else {
-                return auth_check('fail', 'Password rejected');
+                return helpers.auth('alexa', 'fail', 'Password rejected');
               }
             });
         }
@@ -56,21 +42,21 @@ describe("Freeze accounts test", function() {
           }).then(function(record) {
             if(!lockable || (!locked && max_attempts == 0)) {
               expect(record.frozen_at).toBeNull();
-              return auth_check('fail', 'Password rejected')
+              return helpers.auth('alexa', 'fail', 'Password rejected')
                 .then(function() {
-                  return auth_check('123456');
+                  return helpers.auth('alexa', '123456');
                 });
             } else if(locked) {
-              return auth_check('fail', 'Account locked')
+              return helpers.auth('alexa', 'fail', 'Account locked')
                 .then(function() {
-                  return auth_check('123456', 'Account locked');
+                  return helpers.auth('alexa', '123456', 'Account locked');
                 });
             } else {
               expect(record.current_freeze_time).toEqual(wait);
               wait *= 2;
-              return auth_check('fail', 'Account frozen')
+              return helpers.auth('alexa', 'fail', 'Account frozen')
                 .then(function() {
-                  return auth_check('123456', 'Account frozen');
+                  return helpers.auth('alexa', '123456', 'Account frozen');
                 })
             }
           })
@@ -80,9 +66,9 @@ describe("Freeze accounts test", function() {
         .delay(tick)
         .then(function() {
           if(lockable && locked) {
-            return auth_check('fail', 'Account locked');
+            return helpers.auth('alexa', 'fail', 'Account locked');
           } else {
-            return auth_check('fail', 'Password rejected')
+            return helpers.auth('alexa', 'fail', 'Password rejected')
               .then(function() {
                 if(max_attempts == 1) {
                   return Promise.delay(wait);
@@ -92,15 +78,15 @@ describe("Freeze accounts test", function() {
         })
         .then(function() {
           if(lockable && locked) {
-            return auth_check('123456', 'Account locked');
+            return helpers.auth('alexa', '123456', 'Account locked');
           } else {
-            return auth_check('123456');
+            return helpers.auth('alexa', '123456');
           }
         });
     });
     return setup(max_attempts, lockable)
       .then(function() {
-        return auth_check('123456')
+        return helpers.auth('alexa', '123456')
       })
       .then(function() {
         if(locked) {
@@ -162,8 +148,8 @@ describe("Freeze accounts test", function() {
 
   for(var i = 0; i <= max_attempts; i++) {
     for(var j = 1; j <= cycles; j++ ) {
-      for(lockable of [false, true]) {
-        for(locked of [false, true]) {
+      for(var lockable of [false, true]) {
+        for(var locked of [false, true]) {
           var spec = make_spec(i, j, lockable, locked);
         }
       }

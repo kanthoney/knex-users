@@ -122,6 +122,19 @@ module.exports = function(db, config)
       });
   }
 
+  var set_lockable = function(id, lockable)
+  {
+    return get(id)
+      .then(function(record) {
+        return table().where({id: id}).update({lockable: lockable})
+          .then(function() {
+            if(!lockable) {
+              return unlock(id);
+            }
+          });
+      });
+  }
+
   var get = function(id)
   {
     return table().where({id: id}).select()
@@ -310,6 +323,7 @@ module.exports = function(db, config)
     rename: rename,
     lock: lock,
     unlock: unlock,
+    set_lockable: set_lockable,
     set_password: set_password,
     data_set: data_set,
     data_get: data_get,

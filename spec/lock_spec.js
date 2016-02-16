@@ -1,166 +1,158 @@
 
 var users = require('./users')();
 var Promise = require('bluebird');
-var user_list = require('./user_list');
+var helpers = require('./helpers')(users);
 
-describe("Account locking", function() {
+fdescribe("Account locking", function() {
 
   beforeAll(function(done) {
-    users.migrate_down()
-      .then(function() {
-        return users.migrate_up();
-      })
-      .then(function() {
-        return Promise.map(user_list, function(user) {
-          return users.add(user);
-        });
-      })
+    helpers.reset()
       .finally(function() {
         done();
       });
   });
 
-  it("should lock user 'alexa'", function(done) {
-    users.lock('alexa')
+  var set = function(lockable, locked)
+  {
+    return users.add({id: 'alexa', password: 'pass', lockable: lockable, locked: locked})
+  }
+
+  var reset = function()
+  {
+    return users.remove('alexa');
+  }
+
+  var lock_user = function(user)
+  {
+    return users.lock(user)
       .then(function() {
-        return users.get('alexa');
+        return users.get(user)
+          .then(function(record) {
+            expect(record.locked).toBeTruthy();
+          });
+      })
+      .catch(function(error) {
+        return users.get(user)
+          .then(function(record) {
+            if(record.lockable) {
+              fail(error);
+            } else {
+              expect(error).toEqual('Account not lockable');
+            }
+          });
+      });
+  }
+
+  var unlock_user = function(user)
+  {
+    return users.unlock(user)
+      .then(function() {
+        return users.get(user)
+          .then(function(record) {
+            expect(record.locked).toBeFalsy();
+          });
+      });
+  }
+
+  var lockable_user = function(user)
+  {
+    return users.set_lockable(user, true)
+      .then(function() {
+        return users.get(user);
       })
       .then(function(record) {
-        expect(record.locked).toBeTruthy();
-      })
-      .catch(function(error) {
-        fail(error);
-      })
-        .finally(function() {
-          done();
-        });
-  });
-
-  it("should reject 'alexa' twice with 'Account locked' error", function(done) {
-    var passwords = ['123456', 'g%$2;oF&'];
-    Promise.map(passwords,
-                function(password)
-                {
-                  return Promise
-                    .delay(20,
-                           users.authenticate('alexa', password)
-                           .then(function() {
-                             fail('Authenticated locked user');
-                           })
-                           .catch(function(error) {
-                             expect(error).toEqual('Account locked');
-                           }))
-                })
-      .finally(function() {
-        done();
+        expect(record.lockable).toBeTruthy();
       });
-  });
+  }
 
-  it("should unlock 'alexa'", function(done) {
-    users.unlock('alexa')
+  var unlockable_user = function(user)
+  {
+    return users.set_lockable(user, false)
       .then(function() {
-        return users.get('alexa');
+        return users.get(user);
       })
       .then(function(record) {
-        expect(record.locked).toBeFalsy();
-        expect(record.failed_logins).toEqual(0);
-        expect(record.frozen_at).toBeNull();
+        expect(record.lockable).toBeFalsy();
+      });
+  }
+
+  var test = function(init_lockable, locked, lockable, lock)
+  {
+    return set(init_lockable, locked)
+      .then(function() {
+        if(lockable) {
+          return lockable_user('alexa');
+        } else {
+          return unlockable_user('alexa');
+        }
+      })
+      .then(function() {
+        if(lock) {
+          return lock_user('alexa');
+        } else {
+          return unlock_user('alexa');
+        }
+      })
+      .then(function() {
+        if(lockable && lock) {
+          return helpers.auth('alexa', 'pass', 'Account locked')
+            .then(function() {
+              return helpers.auth('alexa', 'fail', 'Account locked')
+            });
+        } else {
+          return helpers.auth('alexa', 'pass')
+            .then(function() {
+              return helpers.auth('alexa', 'fail', 'Password rejected')
+            });
+        }
       })
       .finally(function() {
-        done();
+        return reset();
       });
-  });
+  }
 
-  it("should reject 'alexa' with password 'g%$2;oF&' with 'Password rejected'", function(done) {
-    users.authenticate('alexa', 'g%$2;oF&')
-      .then(function() {
-        fail('Authenticated user with wrong password');
-      })
-      .catch(function(error) {
-        expect(error).toEqual('Password rejected');
-      })
+  var make_spec = function(init_lockable, locked, lockable, lock)
+  {
+    var description = "should test locking when account is ";
+    if(init_lockable) {
+      description += "initially lockable and ";
+    } else {
+      description += "not initially lockable and ";
+    }
+    if(lockable) {
+      description += "locked";
+    } else {
+      description += "not locked";
+    }
+    description += ", then set to ";
+    if(lockable) {
+      description += "lockable";
+    } else {
+      description += "not lockable";
+    }
+    description += ", then ";
+    if(locked) {
+      description += "locked";
+    } else {
+      description += "unlocked";
+    }
+    return it(description, function(done) {
+      test(init_lockable, locked, lockable, lock)
         .finally(function() {
           done();
         });
-  });
+    });
+  }
 
-  it("should accept 'alexa' with password '123456'", function(done) {
-    users.authenticate('alexa', '123456')
-      .catch(function(error) {
-        fail(error);
-      })
-        .finally(function() {
-          done();
-        });
-  });
-
-  it("should not lock 'jerry'", function(done) {
-    users.lock('jerry')
-      .then(function() {
-        fail('Locked unlockable account');
-      })
-      .catch(function(error) {
-        expect(error).toEqual('Account not lockable');
-        return users.get('jerry');
-      })
-        .then(function(record) {
-          expect(record.locked).toBeFalsy();
-        })
-      .finally(function() {
-        done();
-      });
-  });
-
-  it("should reject 'jerry' with password 'g%$2;oF&' with 'Password rejected'", function(done) {
-    users.authenticate('jerry', 'g%$2;oF&')
-      .then(function() {
-        fail('Authenticated user with wrong password');
-      })
-      .catch(function(error) {
-        expect(error).toEqual('Password rejected');
-      })
-        .finally(function() {
-          done();
-        });
-  });
-
-  it("should leave 'jerry' unlocked", function(done) {
-    users.unlock('jerry')
-      .then(function() {
-        return users.get('jerry');
-      })
-      .then(function(record) {
-        expect(record.locked).toBeFalsy();
-        expect(record.failed_logins).toEqual(0);
-        expect(record.frozen_at).toBeNull();
-      })
-      .finally(function() {
-        done();
-      });
-  });
-
-  it("should reject 'jerry' with password 'g%$2;oF&' with 'Password rejected'", function(done) {
-    users.authenticate('jerry', 'g%$2;oF&')
-      .then(function() {
-        fail('Authenticated user with wrong password');
-      })
-      .catch(function(error) {
-        expect(error).toEqual('Password rejected');
-      })
-        .finally(function() {
-          done();
-        });
-  });
-
-  it("should accept 'jerry' with password 'letmeout'", function(done) {
-    users.authenticate('jerry', 'letmeout')
-      .catch(function(error) {
-        fail(error);
-      })
-        .finally(function() {
-          done();
-        });
-  });
+  for(var init_lockable of [false, true]) {
+    for(var locked of [false, true]) {
+      for(var lockable of [false, true]) {
+        for(var lock of [false, true]) {
+          make_spec(init_lockable, locked, lockable, lock);
+        }
+      }
+    }
+  }
 
 });
 
