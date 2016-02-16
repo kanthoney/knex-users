@@ -9,9 +9,9 @@ user = {id:'alexa', password: '123456'}
 
 describe("Freeze accounts test", function() {
 
-  var setup = function(max_attempts)
+  var setup = function(max_attempts, lockable)
   {
-    return users.add(_.defaults({max_attempts: max_attempts, freeze_time: tick}, user));
+    return users.add(_.defaults({max_attempts: max_attempts, freeze_time: tick, lockable: lockable}, user));
   }
 
   var auth_check = function(password, message)
@@ -31,43 +31,91 @@ describe("Freeze accounts test", function() {
       });
   }
 
-  var test = function(max_attempts, cycles)
+  var test = function(max_attempts, cycles, lockable, locked)
   {
     var p = Promise.coroutine(function*() {
+      var attempts = max_attempts;
+      if(attempts == 0) {
+        attempts = 2;
+      }
       var wait = tick;
       for(var i = 0; i < cycles; i++) {
-        for(var j = 0; j < max_attempts; j++) {
+        for(var j = 0; j < attempts; j++) {
           yield Promise.delay(tick/2)
             .then(function() {
-              return auth_check('fail', 'Password rejected');
+              if(lockable && locked) {
+                return auth_check('fail', 'Account locked');
+              } else {
+                return auth_check('fail', 'Password rejected');
+              }
             });
         }
         yield Promise.delay(wait - tick)
           .then(function() {
             return users.get('alexa');
           }).then(function(record) {
-            expect(record.current_freeze_time).toEqual(wait);
-            console.log("Account freeze cycle completed for max_attempts " + max_attempts + " - freeze time now " + record.current_freeze_time + " ms");
-            wait *= 2;
-            return auth_check('fail', 'Account frozen');
-          })
-          .then(function() {
-            return auth_check('123456', 'Account frozen');
+            if(!lockable || (!locked && max_attempts == 0)) {
+              expect(record.frozen_at).toBeNull();
+              return auth_check('fail', 'Password rejected')
+                .then(function() {
+                  return auth_check('123456');
+                });
+            } else if(locked) {
+              return auth_check('fail', 'Account locked')
+                .then(function() {
+                  return auth_check('123456', 'Account locked');
+                });
+            } else {
+              expect(record.current_freeze_time).toEqual(wait);
+              wait *= 2;
+              return auth_check('fail', 'Account frozen')
+                .then(function() {
+                  return auth_check('123456', 'Account frozen');
+                })
+            }
           })
           .delay(tick);
       }
       return Promise
         .delay(tick)
         .then(function() {
-          return auth_check('fail', 'Password rejected');
+          if(lockable && locked) {
+            return auth_check('fail', 'Account locked');
+          } else {
+            return auth_check('fail', 'Password rejected')
+              .then(function() {
+                if(max_attempts == 1) {
+                  return Promise.delay(wait);
+                }
+              });
+          }
         })
         .then(function() {
-          return auth_check('123456');
+          if(lockable && locked) {
+            return auth_check('123456', 'Account locked');
+          } else {
+            return auth_check('123456');
+          }
         });
     });
-    return setup(max_attempts)
+    return setup(max_attempts, lockable)
       .then(function() {
         return auth_check('123456')
+      })
+      .then(function() {
+        if(locked) {
+          return users.lock('alexa')
+            .then(function() {
+              if(!lockable) {
+                fail("locked unlockable account");
+              }
+            })
+            .catch(function(error) {
+              if(lockable) {
+                fail(error);
+              }
+            });
+        }
       })
       .then(function() {
         return p();
@@ -87,15 +135,40 @@ describe("Freeze accounts test", function() {
       });
   });
 
-  var max_attempts = 2;
-  var cycles = 2;
+  var max_attempts = 3;
+  var cycles = 3;
 
-  it("should authenticate user, then fail max_attempts with 'Password rejected', then freeze account for appropriate time, finally unlock account ", function(done) {
-    test(max_attempts, cycles)
-      .finally(function() {
-        done();
-      });
-  }, tick * (max_attempts * Math.pow(2, cycles) + 5));
+  var make_spec = function(max_attempts, cycles, lockable, locked) {
+    var description = "should test for " + i + " max attempts with " + cycles + " failed login cycles, for ";
+    if(lockable) {
+      description += "a lockable ";
+    } else {
+      description += "an unlockable ";
+    }
+    description += "user, ";
+    if(locked) {
+      description += "with ";
+    } else {
+      description += "without ";
+    }
+    description += "a lock attempt";
+    return it(description, function(done) {
+      test(max_attempts, cycles, lockable, locked)
+        .finally(function() {
+          done();
+        });
+    }, 2 * tick * (max_attempts * Math.pow(cycles, 2) + 5));
+  }
+
+  for(var i = 0; i <= max_attempts; i++) {
+    for(var j = 1; j <= cycles; j++ ) {
+      for(lockable of [false, true]) {
+        for(locked of [false, true]) {
+          var spec = make_spec(i, j, lockable, locked);
+        }
+      }
+    }
+  }
 
 });
 
