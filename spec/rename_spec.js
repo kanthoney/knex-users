@@ -2,18 +2,14 @@
 var users = require('./users')();
 var Promise = require('bluebird');
 var user_list = require('./user_list');
+var helpers = require('./helpers')(users);
 
 describe("Account renaming", function() {
 
   beforeAll(function(done) {
-    users.migrate_down()
+    helpers.reset()
       .then(function() {
-        return users.migrate_up();
-      })
-      .then(function() {
-        return Promise.map(user_list, function(user) {
-          return users.add(user);
-        });
+        return helpers.populate(user_list);
       })
       .then(function() {
         return users.data_set('jerry', 'marker', true);
@@ -44,6 +40,13 @@ describe("Account renaming", function() {
           .finally(function() {
             done();
           });
+  });
+  
+  it("should authenticate 'ben' using 'letmeout'", function(done) {
+    helpers.auth('ben', 'letmeout')
+      .finally(function() {
+        done();
+      });
   });
 
   it("should fail to rename 'ben' to 'alexa'", function(done) {
