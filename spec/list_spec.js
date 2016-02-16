@@ -2,18 +2,14 @@
 var users = require('./users')();
 var Promise = require('bluebird');
 var user_list = require('./user_list');
+var helpers = require('./helpers')(users);
 
 describe("record listing", function() {
 
   beforeAll(function(done) {
-    users.migrate_down()
+    helpers.reset()
       .then(function() {
-        return users.migrate_up();
-      })
-      .then(function() {
-        return Promise.map(user_list, function(user) {
-          return users.add(user);
-        });
+        return helpers.populate(user_list);
       })
       .finally(function() {
         done();

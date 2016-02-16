@@ -12,20 +12,14 @@ var hash_password = function(password)
 }
 
 var users = require('./users')({hash_password: hash_password});
+var helpers = require('./helpers')(users);
 
 describe("Authentication tests", function() {
 
   beforeAll(function(done) {
-    users.migrate_down()
+    helpers.reset()
       .then(function() {
-        return users.migrate_up();
-      })
-      .then(function() {
-        return Promise.map(user_list, function(user) {
-          var user_copy = _.clone(user);
-          user_copy.lockable = false;
-          return users.add(user_copy);
-        });
+        return helpers.populate(user_list);
       })
       .finally(function() {
         done();
@@ -44,76 +38,60 @@ describe("Authentication tests", function() {
   }
 
   it("should accept users when sending challenged password", function(done) {
-    Promise.map(user_list,
-                function(user) 
-                {
-                  return users.authenticate(user.id, add_challenge(user.password), check_password)
-                    .catch(function(error) {
-                      fail(error);
-                    })
-                      })
+    Promise
+      .map(user_list,
+           function(user) 
+           {
+             return helpers.auth_compare(user.id, add_challenge(user.password), check_password);
+           })
       .finally(function() {
         done();
       });
   });
-
+  
   it("should reject users when sending plain password", function(done) {
-    Promise.map(user_list,
-                function(user)
-                {
-                  return users.authenticate(user.id, user.password)
-                    .then(function() {
-                      fail('Authenticated user with stored hashed password when using plain password');
-                    })
-                    .catch(function(error) {
-                      expect(error).toEqual('Password rejected');
-                    })
-                      })
+    Promise
+      .map(user_list,
+           function(user)
+           {
+             return helpers.auth(user.id, user.password, 'Password rejected');
+           })
       .finally(function() {
         done();
       });
   });
 
   it("should accept users when sending hashed password with no compare function", function(done) {
-    Promise.map(user_list,
-                function(user)
-                {
-                  return users.authenticate(user.id, hash_password(user.password))
-                    .catch(function(error) {
-                      fail(error);
-                    })
-                      })
+    Promise
+      .map(user_list,
+           function(user)
+           {
+             return helpers.auth(user.id, hash_password(user.password))
+           })
       .finally(function() {
         done();
       });
   });
 
   it("should reject users when sending plain password when using straight compare function", function(done) {
-    Promise.map(user_list,
-                function(user)
-                {
-                  return users.authenticate(user.id, user.password, _.eq)
-                    .then(function() {
-                      fail('Authenticated user with challenge when using plain password');
-                    })
-                    .catch(function(error) {
-                      expect(error).toEqual('Password rejected');
-                    })
-                      })
+    Promise
+      .map(user_list,
+           function(user)
+           {
+             return helpers.auth_compare(user.id, user.password, _.eq, 'Password rejected')
+           })
       .finally(function() {
         done();
       });
   });
 
   it("should accept users when sending hashed password when using a straight compare function", function(done) {
-    Promise.map(user_list,
-                function(user) 
-                {
-                  return users.authenticate(user.id, hash_password(user.password), _.eq)
-                    .catch(function(error) {
-                      fail(error);
-                    })
-                      })
+    Promise
+      .map(user_list,
+           function(user) 
+           {
+             return helpers.auth_compare(user.id, hash_password(user.password), _.eq);
+           })
       .finally(function() {
         done();
       });

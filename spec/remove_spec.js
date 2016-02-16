@@ -2,18 +2,14 @@
 var users = require('./users')();
 var Promise = require('bluebird');
 var user_list = require('./user_list');
+var helpers = require('./helpers')(users);
 
 describe("record removal", function() {
 
   beforeAll(function(done) {
-    users.migrate_down()
+    helpers.reset()
       .then(function() {
-        return users.migrate_up();
-      })
-      .then(function() {
-        return Promise.map(user_list, function(user) {
-          return users.add(user);
-        });
+        return helpers.populate(user_list);
       })
       .finally(function() {
         done();
@@ -51,6 +47,13 @@ describe("record removal", function() {
         .finally(function() {
           done();
         });
+  });
+
+  it("should fail to authenticate 'jerry' with 'Unknown user' message", function(done) {
+    helpers.auth('jerry', 'letmeout', 'Unknown user')
+      .finally(function() {
+        done();
+      });
   });
 
 });
