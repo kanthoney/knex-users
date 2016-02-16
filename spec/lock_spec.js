@@ -3,7 +3,7 @@ var users = require('./users')();
 var Promise = require('bluebird');
 var helpers = require('./helpers')(users);
 
-fdescribe("Account locking", function() {
+describe("Account locking", function() {
 
   beforeAll(function(done) {
     helpers.reset()

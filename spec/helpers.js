@@ -37,8 +37,26 @@ module.exports = function(users) {
       });
   }
 
+  var auth_compare = function(id, password, compare, message)
+  {
+    return users.authenticate(id, password, compare)
+      .then(function() {
+        if(message) {
+          fail("Authenticated user when expecting '" + message + "'");
+        }
+      })
+      .catch(function(error) {
+        if(!message) {
+          fail(error);
+        } else {
+          expect(error).toEqual(message);
+        }
+      });
+  }
+
   return {
     auth: auth,
+    auth_compare: auth_compare,
     populate: populate,
     reset: reset
   }
