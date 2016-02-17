@@ -49,7 +49,7 @@ module.exports = function(db, config)
       table.dateTime('frozen_at');
       table.integer('current_freeze_time');
       table.integer('freeze_time');
-      table.json('data');
+      table.text('data');
     });
   }
 
@@ -195,7 +195,7 @@ module.exports = function(db, config)
   {
     return get(id)
       .then(function(user) {
-        return table().where({id: id}).update({failed_logins: 0, current_freeze_time: 0, frozen_at: null});
+        return table().where({id: user.id}).update({failed_logins: 0, current_freeze_time: 0, frozen_at: null});
       });
   }
 
@@ -266,7 +266,7 @@ module.exports = function(db, config)
       })
       .then(function() {
         return reset_login_attempts(id).
-          catch(function() {
+          catch(function(error) {
             console.warn('Failed to reset login attempts for user ' + id);
             return;
           });
