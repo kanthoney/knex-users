@@ -6,38 +6,18 @@ var _ = require('lodash')
 module.exports = function(db, config)
 {
 
-  var table_name = 'users';
-  if(config && config.table_name) {
-    table_name = config.table_name;
-  }
-  var max_attempts = 0;
-  if(config && config.max_attempts) {
-    max_attempts = config.max_attempts;
-  }
-  var freeze_time = 0;
-  if(config && config.freeze_time) {
-    freeze_time = config.freeze_time;
-  }
-  var hash_password;
-  var check_password;
-  if(config && config.hash_password) {
-    hash_password = config.hash_password;
-  } else {
-    hash_password = function(password) {
-      return password;
-    }
-  }
-  if(config && config.check_password) {
-    check_password = config.check_password;
-  } else {
-    check_password = function(supplied, stored) {
-      return supplied == stored;
-    }
-  }
+  var self = {};
+  config = config || {};
 
-  var up = function()
+  _.defaults(config, {table_name: 'users',
+                      max_attempts: 0,
+                      freeze_time: 0,
+                      hash_password: _.identity,
+                      check_password: _.eq});
+
+  self.migrate_up = function()
   {
-    return db.schema.createTableIfNotExists(table_name, function(table) {
+    return db.schema.createTableIfNotExists(config.table_name, function(table) {
       table.string('id').notNullable().primary();
       table.text('password');
       table.dateTime('created').notNullable();
@@ -53,21 +33,21 @@ module.exports = function(db, config)
     });
   }
 
-  var down = function()
+  self.migrate_down = function()
   {
-    return db.schema.dropTableIfExists(table_name);
+    return db.schema.dropTableIfExists(config.table_name);
   }
 
   var table = function()
   {
-    return db(table_name);
+    return db(config.table_name);
   }
 
-  var add = function(user)
+  self.add = function(user)
   {
     var now = new Date().toISOString();
     var user_copy = _.clone(user);
-    _.assign(user_copy, {password: hash_password(user_copy.password),
+    _.assign(user_copy, {password: config.hash_password(user_copy.password),
                          created: now,
                          password_changed: now,
                          current_freeze_time: 0,
@@ -76,18 +56,18 @@ module.exports = function(db, config)
                          data: JSON.stringify({})});
     return table().insert(_.defaults(user_copy, {locked: false,
                                                  lockable: true,
-                                                 max_attempts: max_attempts,
-                                                 freeze_time: freeze_time}));
+                                                 max_attempts: config.max_attempts,
+                                                 freeze_time: config.freeze_time}));
   }
 
-  var remove = function(id)
+  self.remove = function(id)
   {
     return table().where({id: id}).delete();
   }
 
-  var rename = function(id, new_id)
+  self.rename = function(id, new_id)
   {
-    return get(id)
+    return self.get(id)
       .then(function() {
         return table().where({id: id}).update({id: new_id});
       });
@@ -95,7 +75,7 @@ module.exports = function(db, config)
 
   var lockable = function(id)
   {
-    return get(id)
+    return self.get(id)
       .then(function(record) {
         if(!record.lockable) {
           return Promise.reject('Account not lockable');
@@ -103,7 +83,7 @@ module.exports = function(db, config)
       })
   }
 
-  var lock = function(id)
+  self.lock = function(id)
   {
     return lockable(id)
       .then(function() {
@@ -111,9 +91,9 @@ module.exports = function(db, config)
       });
   }
 
-  var unlock = function(id)
+  self.unlock = function(id)
   {
-    return get(id)
+    return self.get(id)
       .then(function(record) {
         return table().where({id: id}).update({locked: false});
       })
@@ -122,26 +102,26 @@ module.exports = function(db, config)
       });
   }
 
-  var set_lockable = function(id)
+  self.set_lockable = function(id)
   {
-    return get(id)
+    return self.get(id)
       .then(function(record) {
         return table().where({id: id}).update({lockable: true});
       });
   }
 
-  var set_unlockable = function(id)
+  self.set_unlockable = function(id)
   {
-    return get(id)
+    return self.get(id)
       .then(function(record) {
         return table().where({id: id}).update({lockable: false})
           .then(function() {
-            return unlock(id);
+            return self.unlock(id);
           });
       });
   }
 
-  var get = function(id)
+  self.get = function(id)
   {
     return table().where({id: id}).select()
       .then(function(rows) {
@@ -161,7 +141,7 @@ module.exports = function(db, config)
 
   var freeze_account = function(id)
   {
-    return get(id)
+    return self.get(id)
       .then(function(record) {
         var current_freeze_time = 2*record.current_freeze_time;
         if(current_freeze_time == 0) {
@@ -175,11 +155,11 @@ module.exports = function(db, config)
 
   var increment_login_attempts = function(id)
   {
-    return get(id)
+    return self.get(id)
       .then(function(record) {
         return table().where({id: record.id}).increment('failed_logins', 1)
           .then(function() {
-            return get(id);
+            return self.get(id);
           })
           .then(function(record) {
             // Do not freeze account if user not lockable or max_attempts <= 0
@@ -193,44 +173,44 @@ module.exports = function(db, config)
 
   var reset_login_attempts = function(id)
   {
-    return get(id)
+    return self.get(id)
       .then(function(user) {
         return table().where({id: user.id}).update({failed_logins: 0, current_freeze_time: 0, frozen_at: null});
       });
   }
 
-  var set_password = function(id, password)
+  self.set_password = function(id, password)
   {
     return table().where({id: id}).update({password:password, password_changed: new Date().toISOString()});
   }
 
-  var data_set = function(id, path, value)
+  self.data_set = function(id, path, value)
   {
-    return get(id)
+    return self.get(id)
       .then(function(record) {
         _.set(record.data, path, value);
         return table().where({id: id}).update({data:JSON.stringify(record.data)});
       });
   }
 
-  var data_get = function(id, path)
+  self.data_get = function(id, path)
   {
-    return get(id)
+    return self.get(id)
       .then(function(record) {
         return _.get(record.data, path);
       });
   }
 
-  var data_unset = function(id, path)
+  self.data_unset = function(id, path)
   {
-    return get(id)
+    return self.get(id)
       .then(function(record) {
         _.unset(record.data, path);
         return table().where({id: id}).update({data:JSON.stringify(record.data)});
       });
   }
 
-  var authenticate = function(id, password, compare)
+  self.authenticate = function(id, password, compare)
   {
     return table().where({id: id})
       .then(function(rows) {
@@ -251,7 +231,7 @@ module.exports = function(db, config)
           if(!compare(password, user.password)) {
             return Promise.reject('Password rejected');
           }
-        } else if(!check_password(password, user.password)) {
+        } else if(!config.check_password(password, user.password)) {
           return Promise.reject('Password rejected');
         }
       })
@@ -273,7 +253,7 @@ module.exports = function(db, config)
       })
   }
 
-  var count = function()
+  self.count = function()
   {
     return table().count('* as n')
       .then(function(value) {
@@ -285,7 +265,7 @@ module.exports = function(db, config)
       });
   }
 
-  var list = function(start, limit, orderBy)
+  self.list = function(start, limit, orderBy)
   {
     if(start == undefined) {
       start = 0;
@@ -320,25 +300,7 @@ module.exports = function(db, config)
       });
   }
 
-  return {
-    migrate_up: up,
-    migrate_down: down,
-    add: add,
-    get: get,
-    remove: remove,
-    rename: rename,
-    lock: lock,
-    unlock: unlock,
-    set_lockable: set_lockable,
-    set_unlockable: set_unlockable,
-    set_password: set_password,
-    data_set: data_set,
-    data_get: data_get,
-    data_unset: data_unset,
-    authenticate: authenticate,
-    count: count,
-    list: list
-  }
+  return self;
 
 }
 
