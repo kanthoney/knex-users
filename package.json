@@ -1,6 +1,6 @@
 {
   "name": "knex-users",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "User account handling using knex",
   "main": "index.js",
   "scripts": {
