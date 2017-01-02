@@ -46,7 +46,18 @@ module.exports = function(db, config)
   self.add = function(user)
   {
     var now = new Date().toISOString();
-    var user_copy = _.clone(user);
+    var user_copy = _.pick(user, ['id',
+                                  'password',
+                                  'created',
+                                  'password_changed',
+                                  'locked',
+                                  'lockable',
+                                  'max_attempts',
+                                  'failed_logins',
+                                  'frozen_at',
+                                  'current_freeze_time',
+                                  'freeze_time',
+                                  'data']);
     _.assign(user_copy, {password: config.hash_password(user_copy.password),
                          created: now,
                          password_changed: now,
@@ -181,7 +192,7 @@ module.exports = function(db, config)
 
   self.set_password = function(id, password)
   {
-    return table().where({id: id}).update({password:password, password_changed: new Date().toISOString()});
+    return table().where({id: id}).update({password: config.hash_password(password), password_changed: new Date().toISOString()});
   }
 
   self.data_set = function(id, path, value)

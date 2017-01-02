@@ -20,6 +20,13 @@ module.exports = function(users) {
     });
   }
 
+  var update = function(user_list)
+  {
+    return Promise.map(user_list, function(user) {
+      return users.set_password(user.id, user.new_password);
+    });
+  }
+
   var auth = function(id, password, message)
   {
     return users.authenticate(id, password)
@@ -58,6 +65,7 @@ module.exports = function(users) {
     auth: auth,
     auth_compare: auth_compare,
     populate: populate,
+    update: update,
     reset: reset
   }
 }
